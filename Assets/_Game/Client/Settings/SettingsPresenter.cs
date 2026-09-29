@@ -888,6 +888,9 @@ namespace Game.Client.Settings
 
         private void ShowDraft()
         {
+            if (microphoneTest.IsRunning)
+                microphoneTest.Start(soundDraft.DeviceName, Game.Core.Voice.VoiceCaptureGain.From(soundDraft));
+
             var language = general.Languages.TryFind(generalDraft.LanguageCode, out var listed)
                 ? listed
                 : general.Languages.Default;

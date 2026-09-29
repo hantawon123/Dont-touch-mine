@@ -157,6 +157,20 @@ namespace Game.Tests.EditMode
         }
 
         [Test]
+        public void LeavingPassageCompletesEvenAfterStandingUp()
+        {
+            var progress = AtJump();
+            progress.ObserveMovement(Observe(grounded: true));
+            progress.ObserveMovement(Observe(grounded: false));
+            progress.ObserveMovement(Observe(grounded: true, jumpCourseCompleted: true));
+
+            progress.ObserveMovement(Observe(posture: PlayerPosture.Standing, passageCompleted: true));
+            Assert.That(progress.CurrentStep, Is.EqualTo(TutorialStep.Prone));
+            progress.ObserveMovement(Observe(posture: PlayerPosture.Standing, passageCompleted: true));
+            Assert.That(progress.CurrentStep, Is.EqualTo(TutorialStep.PickUp));
+        }
+
+        [Test]
         public void RetryClearsPartialProgressWithoutChangingStep()
         {
             var progress = new TutorialProgress();

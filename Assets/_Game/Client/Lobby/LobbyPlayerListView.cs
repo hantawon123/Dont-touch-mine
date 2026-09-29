@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using Game.Client.Character;
 using Game.Client.Home;
+using Game.Client.Settings;
 using Game.Core.Home;
 using Game.Core.Lobby;
 using Game.Core.Settings;
+using Game.Core.Voice;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -120,6 +122,17 @@ namespace Game.Client.Lobby
         private string lastLocal;
         private bool lastNamesReady = true;
         private bool matchLayout;
+        private string rowLanguage;
+        private bool rowMatchLayout;
+        private VoicePreferences voicePreferences = new();
+
+        [VContainer.Inject]
+        public void BindVoicePreferences(VoicePreferences value)
+        {
+            voicePreferences = value ?? throw new ArgumentNullException(nameof(value));
+            rowLanguage = null;
+            SetParticipants(lastParticipants, lastHost, lastLocal, lastNamesReady);
+        }
 
         /// <summary>
         /// Redraws the words the modal owns in <paramref name="locale"/>. Player
@@ -286,11 +299,24 @@ namespace Game.Client.Lobby
                 return;
             }
 
+            var reuse = CanReuseParticipantRows(participants, localIsHost, localPlayerId, namesReady);
             lastParticipants = participants;
             lastHost = localIsHost;
             lastLocal = localPlayerId;
             lastNamesReady = namesReady;
             EnsureLayout();
+            if (reuse)
+            {
+                var rowIndex = 0;
+                foreach (var person in participants)
+                {
+                    if (!CanShowParticipant(person.Id, person.Id == localPlayerId)) continue;
+                    UpdateParticipantVoice(participantRows[rowIndex++].transform, person);
+                }
+                return;
+            }
+            rowMatchLayout = matchLayout;
+            rowLanguage = chromeLocale != null ? chromeLocale.LanguageCode : UiLocale.AppliedLanguage;
             ClearRows(participantRows);
 
             if (!namesReady)
@@ -330,6 +356,7 @@ namespace Game.Client.Lobby
                     isListening: participant.IsListening,
                     playerId: participant.Id,
                     userId: participant.UserId);
+                if (!isSelf) CreatePlayerVolumeSlider(row, participant);
                 var playerId = participant.Id;
                 var rosterName = participant.DisplayName;
                 var displayName = shownName;
@@ -884,7 +911,7 @@ namespace Game.Client.Lobby
             scrollRect.vertical = true;
             scrollRect.movementType = ScrollRect.MovementType.Clamped;
             scrollRect.scrollSensitivity = RowHeight;
-            if (name == "Friends")
+            if (name == "Friends" || name == "Participants")
             {
                 scrollRect.verticalScrollbar = CreateScrollbar(scroll);
                 scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
@@ -1395,6 +1422,141 @@ namespace Game.Client.Lobby
             label.textWrappingMode = TextWrappingModes.NoWrap;
             label.overflowMode = TextOverflowModes.Overflow;
             return label;
+        }
+
+        private bool CanReuseParticipantRows(IReadOnlyList<LobbyParticipant> next, bool host, string local, bool ready)
+        {
+            if (!ready || !lastNamesReady || next == null || lastParticipants == null
+                || next.Count != lastParticipants.Count || host != lastHost || local != lastLocal || rowMatchLayout != matchLayout
+                || rowLanguage != (chromeLocale != null ? chromeLocale.LanguageCode : UiLocale.AppliedLanguage)) return false;
+            var rowIndex = 0;
+            for (var i = 0; i < next.Count; i++)
+            {
+                var person = next[i];
+                var previous = lastParticipants[i];
+                if (person.Id != previous.Id || person.UserId != previous.UserId || person.IsHost != previous.IsHost) return false;
+                if (!CanShowParticipant(person.Id, person.Id == local)) continue;
+                if (rowIndex >= participantRows.Count) return false;
+                var row = participantRows[rowIndex++];
+                if (row == null || row.name != "Row_" + person.Id
+                    || row.transform.Find("Name").GetComponent<TextMeshProUGUI>().text != ShownParticipantName(person.Id, person.DisplayName)) return false;
+            }
+            return rowIndex > 0 && rowIndex == participantRows.Count;
+        }
+
+        private static void UpdateParticipantVoice(Transform row, LobbyParticipant person)
+        {
+            var avatar = (RectTransform)row.Find("Avatar");
+            var dim = avatar.Find(AvatarDimName);
+            var mute = avatar.Find(MuteIconName);
+            var badge = LobbyPlayerListSprites.MuteOnProfile(!person.IsListening, person.IsMuted);
+            if (badge == null)
+            {
+                if (dim != null) dim.gameObject.SetActive(false);
+                if (mute != null) mute.gameObject.SetActive(false);
+                return;
+            }
+            if (dim == null) CreateMutedOverlay(avatar, badge);
+            else
+            {
+                dim.gameObject.SetActive(true);
+                mute.gameObject.SetActive(true);
+                mute.GetComponent<Image>().sprite = badge;
+            }
+        }
+
+        private void CreatePlayerVolumeSlider(RectTransform row, LobbyParticipant person)
+        {
+            const float extraHeight = 28f * ModalScale;
+            var element = row.GetComponent<LayoutElement>();
+            element.preferredHeight = element.minHeight = RowHeight + extraHeight;
+            // Keep the existing avatar/name/host/kick line above the volume control.
+            foreach (RectTransform child in row)
+                child.anchoredPosition += new Vector2(0f, extraHeight * .5f);
+
+            var control = FindOrCreateRect("PlayerVoiceVolume", row);
+            control.anchorMin = new Vector2(0f, 0f);
+            control.anchorMax = new Vector2(1f, 0f);
+            control.pivot = new Vector2(.5f, 0f);
+            control.offsetMin = new Vector2(AvatarLeft + AvatarSize + NicknameLeft, 5f * ModalScale);
+            control.offsetMax = new Vector2(-ActionRight, extraHeight);
+            var icon = FindOrCreateRect("Icon", control);
+            PinLeft(icon, 0f, new Vector2(16f, 16f) * ModalScale);
+            var image = icon.gameObject.AddComponent<Image>();
+            image.sprite = LobbyPlayerListSprites.SoundOf(false, false);
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+
+            var percent = CreateLabel(control, "Percent", "", HomeUiFonts.ApplyRegular(), 13f * ModalScale);
+            percent.alignment = TextAlignmentOptions.MidlineRight;
+            percent.rectTransform.anchorMin = new Vector2(1f, 0f);
+            percent.rectTransform.anchorMax = Vector2.one;
+            percent.rectTransform.offsetMin = new Vector2(-48f * ModalScale, 0f);
+            percent.rectTransform.offsetMax = Vector2.zero;
+
+            var sliderRect = FindOrCreateRect("Slider", control);
+            Stretch(sliderRect, 24f * ModalScale, 0f, -56f * ModalScale, 0f);
+            var hit = sliderRect.gameObject.AddComponent<Image>();
+            hit.color = Color.clear;
+            var track = FindOrCreateRect("Track", sliderRect);
+            track.anchorMin = new Vector2(0f, .5f);
+            track.anchorMax = new Vector2(1f, .5f);
+            track.sizeDelta = new Vector2(0f, SettingsStyle.Slider.TrackSize.y * ModalScale);
+            var trackImage = track.gameObject.AddComponent<Image>();
+            trackImage.sprite = HomeUiFonts.Rounded(SettingsStyle.Slider.TrackRadius);
+            trackImage.type = Image.Type.Sliced;
+            trackImage.color = SettingsStyle.Palette.SliderTrack;
+            trackImage.raycastTarget = false;
+            var diameter = SettingsStyle.Slider.HandleDiameter * ModalScale;
+            var fillArea = FindOrCreateRect("FillArea", sliderRect);
+            fillArea.anchorMin = new Vector2(0f, .5f);
+            fillArea.anchorMax = new Vector2(1f, .5f);
+            fillArea.sizeDelta = new Vector2(-diameter, SettingsStyle.Slider.FillHeight * ModalScale);
+            var fill = FindOrCreateRect("Fill", fillArea);
+            Stretch(fill, -diameter * .5f - SettingsStyle.Slider.FillLeftOverhang * ModalScale, 0f, 0f, 0f);
+            fill.gameObject.AddComponent<RectMask2D>();
+            var graphic = FindOrCreateRect("Graphic", fill);
+            graphic.anchorMin = graphic.anchorMax = new Vector2(0f, .5f);
+            graphic.pivot = new Vector2(0f, .5f);
+            graphic.sizeDelta = new Vector2(
+                (SettingsStyle.Slider.TrackSize.x + SettingsStyle.Slider.FillLeftOverhang) * ModalScale,
+                SettingsStyle.Slider.FillHeight * ModalScale);
+            var fillImage = graphic.gameObject.AddComponent<Image>();
+            fillImage.sprite = HomeUiFonts.Rounded(SettingsStyle.Slider.FillRadius);
+            fillImage.type = Image.Type.Sliced;
+            fillImage.color = SettingsStyle.Palette.SliderFill;
+            fillImage.raycastTarget = false;
+            var handleArea = FindOrCreateRect("HandleArea", sliderRect);
+            handleArea.anchorMin = new Vector2(0f, .5f);
+            handleArea.anchorMax = new Vector2(1f, .5f);
+            handleArea.sizeDelta = new Vector2(-diameter, diameter);
+            var handle = FindOrCreateRect("Handle", handleArea);
+            handle.anchorMin = handle.anchorMax = new Vector2(.5f, .5f);
+            handle.sizeDelta = new Vector2(diameter, 0f);
+            var handleImage = handle.gameObject.AddComponent<Image>();
+            handleImage.sprite = HomeUiFonts.CircleSprite;
+            handleImage.color = SettingsStyle.Palette.SliderHandle;
+            handleImage.raycastTarget = true;
+            var slider = sliderRect.gameObject.AddComponent<Slider>();
+            slider.targetGraphic = handleImage;
+            slider.fillRect = fill;
+            slider.handleRect = handle;
+            slider.minValue = 0f;
+            slider.maxValue = VoicePreferences.MaxPlayerVolume;
+            slider.wholeNumbers = true;
+            slider.transition = Selectable.Transition.None;
+            slider.navigation = new Navigation { mode = Navigation.Mode.None };
+            var initial = voicePreferences.GetPlayerVolume(person.Id, person.UserId);
+            slider.SetValueWithoutNotify(initial);
+            percent.text = initial + "%";
+            image.sprite = LobbyPlayerListSprites.SoundOf(initial == 0, false);
+            slider.onValueChanged.AddListener(value =>
+            {
+                var volume = Mathf.RoundToInt(value);
+                voicePreferences.SetPlayerVolume(person.Id, person.UserId, volume);
+                percent.text = volume + "%";
+                image.sprite = LobbyPlayerListSprites.SoundOf(volume == 0, false);
+            });
         }
 
         private static void ClearRows(List<GameObject> rows)

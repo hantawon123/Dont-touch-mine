@@ -218,6 +218,22 @@ namespace Game.Network.Voice
                 return;
             }
 
+            line.Append(" | capture txAllowed=").Append(recorder.TransmitEnabled);
+            line.Append(" recordingEnabled=").Append(recorder.RecordingEnabled);
+            line.Append(" vad=").Append(recorder.VoiceDetection);
+            line.Append(" threshold=").Append(recorder.VoiceDetectionThreshold.ToString("F5"));
+            line.Append(" peak=").Append(recorder.LevelMeter == null ? "missing" : recorder.LevelMeter.CurrentPeakAmp.ToString("F6"));
+            line.Append(" backend=").Append(recorder.MicrophoneType);
+            line.Append(" device=").Append(recorder.MicrophoneDevice);
+#if !UNITY_WEBGL || UNITY_EDITOR
+            if (recorder.MicrophoneType == Recorder.MicType.Unity)
+            {
+                var name = recorder.MicrophoneDevice.Name;
+                line.Append(" capturing=").Append(Microphone.IsRecording(name));
+                line.Append(" position=").Append(Microphone.GetPosition(name));
+            }
+#endif
+            line.Append(" project=").Append(Application.dataPath);
             var dsp = recorder.GetComponent<WebRtcAudioDsp>();
             line.Append(" | dsp=");
             if (dsp == null || !dsp.enabled)
@@ -231,7 +247,7 @@ namespace Game.Network.Voice
                 line.Append(" aec").Append(dsp.AEC ? 'Y' : 'N');
             }
 
-            var amplifier = recorder.GetComponent<MicAmplifier>();
+            var amplifier = recorder.GetComponent<VoiceCaptureLimiter>();
             line.Append(" gain=")
                 .Append(amplifier == null ? "-" : amplifier.AmplificationFactor.ToString("0.00"));
         }

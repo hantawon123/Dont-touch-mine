@@ -776,6 +776,8 @@ namespace Game.Client.Settings
                         return UiText.Settings.VolumeMusic;
                     case SoundVolume.Effects:
                         return UiText.Settings.VolumeEffects;
+                    case SoundVolume.Voice:
+                        return UiText.Settings.VolumeVoice;
                     case SoundVolume.Microphone:
                         return UiText.Settings.VolumeMicrophone;
                     default:

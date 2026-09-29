@@ -796,6 +796,8 @@ namespace Game.Tests.EditMode
             public void SetSuspendedNoticeVisible(bool visible) =>
                 SuspendedNoticeVisible = visible;
 
+            public void ShowUpdateNotice(string downloadUrl) { }
+
             public bool SuspendedNoticeVisible { get; private set; }
 
             public void SetNicknameError(string message)

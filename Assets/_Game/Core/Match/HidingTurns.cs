@@ -9,7 +9,8 @@ namespace Game.Core.Match
     /// Turns are not replicated, and they do not need to be. A turn is a
     /// function of the phase, the moment that phase ends and how many are
     /// playing — and every peer already has all three. The player indices those
-    /// turns name come from the shuffled match line-up, not from join order.
+    /// turns name come from the line-up confirmed at match start, which is
+    /// reverse join order while <see cref="DemoMatchLineup"/> is in place.
     /// </remarks>
     public static class HidingTurns
     {

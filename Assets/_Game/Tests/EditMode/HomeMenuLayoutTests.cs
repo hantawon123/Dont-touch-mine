@@ -688,15 +688,61 @@ namespace Game.Tests.EditMode
         public void SuspendedNotice_IsBuiltLastSoItDrawsOverEverything()
         {
             // 유니티는 나중 형제를 먼저 히트테스트하고 나중에 그립니다. 먼저 만들면
-            // 안내 아래의 메뉴가 그대로 눌립니다.
+            // 안내 아래의 메뉴가 그대로 눌립니다. 그 위에는 업데이트 안내 하나만
+            // 올라갑니다(S15P21D205-1109) - 옛 빌드면 정지 여부보다 업데이트가 먼저입니다.
             using var home = new BuiltHome();
 
             var notice = home.Rect("SuspendedNotice");
             var canvas = notice.parent;
             Assert.That(
                 notice.GetSiblingIndex(),
-                Is.EqualTo(canvas.childCount - 1),
-                "정지 안내는 캔버스의 마지막 자식이어야 합니다.");
+                Is.EqualTo(canvas.childCount - 2),
+                "정지 안내는 업데이트 안내 바로 아래, 나머지 전부의 위에 있어야 합니다.");
+        }
+
+        [Test]
+        public void UpdateNotice_StartsHiddenAndCoversEverythingWhenShown()
+        {
+            using var home = new BuiltHome();
+
+            var notice = home.Rect("UpdateNotice");
+            Assert.That(notice, Is.Not.Null, "업데이트 안내가 만들어지지 않았습니다.");
+            Assert.That(notice.gameObject.activeSelf, Is.False,
+                "최신 버전인 사람에게 안내가 잠깐이라도 보이면 안 됩니다.");
+            Assert.That(notice.GetSiblingIndex(), Is.EqualTo(notice.parent.childCount - 1),
+                "업데이트 안내는 캔버스의 마지막 자식이어야 합니다.");
+            Assert.That(notice.GetComponent<Image>().raycastTarget, Is.True,
+                "뒤의 메뉴로 가는 클릭을 삼켜야 합니다.");
+
+            home.View.ShowUpdateNotice("https://example.test/play/");
+            Assert.That(home.View.IsUpdateNoticeVisible, Is.True);
+            Assert.That(notice.anchorMin, Is.EqualTo(Vector2.zero));
+            Assert.That(notice.anchorMax, Is.EqualTo(Vector2.one));
+            Assert.That(home.View.UpdateDownloadUrl, Is.EqualTo("https://example.test/play/"));
+        }
+
+        [Test]
+        public void UpdateNotice_SaysToUpdateAndOffersDownloadAndQuitOnly()
+        {
+            using var home = new BuiltHome();
+            home.View.ShowUpdateNotice("https://example.test/play/");
+
+            var notice = home.Rect("UpdateNotice");
+            var lines = new List<string>();
+            foreach (var text in notice.GetComponentsInChildren<TMPro.TMP_Text>(true))
+            {
+                lines.Add(text.text);
+            }
+
+            Assert.That(lines, Contains.Item(HomeMenuView.UpdateTitle));
+            Assert.That(lines, Contains.Item(HomeMenuView.UpdateBody));
+            Assert.That(notice.GetComponentsInChildren<Button>(true).Length, Is.EqualTo(2),
+                "업데이트 안내에는 다운로드와 게임 종료 말고 누를 것이 없어야 합니다.");
+
+            var raised = new List<HomeMenuAction>();
+            home.View.ActionClicked += raised.Add;
+            home.Rect("UpdateQuitButton").GetComponent<Button>().onClick.Invoke();
+            Assert.That(raised, Is.EqualTo(new[] { HomeMenuAction.Quit }));
         }
 
         [Test]

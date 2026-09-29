@@ -20,9 +20,8 @@ namespace Game.Core.Voice
     /// are all sitting on the default.
     /// </para>
     /// <para>
-    /// Boosting amplifies the room along with the voice, and past some point
-    /// it clips. That is the player's to judge — the slider is beside a test
-    /// button for exactly that.
+    /// Boosting also amplifies remaining room noise. The capture limiter bounds
+    /// peaks before encoding; it cannot repair distortion already in the input.
     /// </para>
     /// </remarks>
     public static class VoiceCaptureGain

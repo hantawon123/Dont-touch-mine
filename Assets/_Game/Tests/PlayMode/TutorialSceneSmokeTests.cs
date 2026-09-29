@@ -317,6 +317,8 @@ namespace Game.Tests.PlayMode
             yield return null;
             for (var i = 0; i < 75; i++)
             {
+                // Standing up at the exit mouth must still count once the tunnel was crossed crouched.
+                if (i == 50) player.ApplyNetworkPosture(Game.Core.Players.PlayerPosture.Standing);
                 controller.Move(Vector3.back * (4.3f / 60) + Vector3.down * .015f);
                 yield return null;
             }

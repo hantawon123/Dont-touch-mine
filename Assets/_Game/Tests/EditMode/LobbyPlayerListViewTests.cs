@@ -17,6 +17,53 @@ namespace Game.Architecture.Tests
 {
     public sealed class LobbyPlayerListViewTests
     {
+        [TestCase(false)]
+        [TestCase(true)]
+        public void PlayerVolumeSliderSurvivesVoiceRefreshAndReopening(bool inMatch)
+        {
+            var canvas = new GameObject("Volume roster", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                var root = new GameObject("List", typeof(RectTransform));
+                root.transform.SetParent(canvas.transform, false);
+                var view = root.AddComponent<LobbyPlayerListView>();
+                if (inMatch) view.ConfigureForMatch();
+                var preferences = new Game.Core.Voice.VoicePreferences();
+                view.BindVoicePreferences(preferences);
+                view.SetParticipants(new[] {
+                    new LobbyParticipant("self", "Me", true, "self-account"),
+                    new LobbyParticipant("other", "Guest", false, "other-account") }, true, "self");
+                var row = FindRow(canvas, "Row_other");
+                var slider = row.Find("PlayerVoiceVolume/Slider").GetComponent<Slider>();
+                Assert.That(FindRow(canvas, "Row_self").Find("PlayerVoiceVolume"), Is.Null);
+                Assert.That(slider.value, Is.EqualTo(50));
+                Assert.That(slider.minValue, Is.Zero);
+                Assert.That(slider.maxValue, Is.EqualTo(100));
+                Assert.That(slider.handleRect.GetComponent<Image>().color,
+                    Is.EqualTo(Game.Client.Settings.SettingsStyle.Palette.SliderHandle));
+                slider.value = 37;
+                Assert.That(preferences.GetPlayerVolume("other", "other-account"), Is.EqualTo(37));
+                view.SetParticipants(new[] {
+                    new LobbyParticipant("self", "Me", true, "self-account", isTalking: true),
+                    new LobbyParticipant("other", "Guest", false, "other-account", isMuted: true) }, true, "self");
+                Assert.That(FindRow(canvas, "Row_other"), Is.SameAs(row), "Voice status must not destroy a dragged slider.");
+                Assert.That(slider.value, Is.EqualTo(37));
+                Assert.That(row.Find("Avatar/Mute").gameObject.activeSelf, Is.True);
+                root.SetActive(false); root.SetActive(true);
+                view.SetParticipants(new[] {
+                    new LobbyParticipant("self", "Me", true, "self-account"),
+                    new LobbyParticipant("other", "Guest", false, "other-account") }, true, "self");
+                Assert.That(row.Find("Avatar/Mute").gameObject.activeSelf, Is.False);
+                Assert.That(slider.value, Is.EqualTo(37));
+                view.SetParticipants(new[] {
+                    new LobbyParticipant("self", "Me", true, "self-account"),
+                    new LobbyParticipant("other", "Renamed", false, "other-account") }, true, "self");
+                Assert.That(FindRow(canvas, "Row_other").Find("PlayerVoiceVolume/Slider").GetComponent<Slider>().value,
+                    Is.EqualTo(37), "Rebuilding a renamed row must retain its volume.");
+            }
+            finally { Object.DestroyImmediate(canvas); }
+        }
+
         [Test]
         public void ReportClicked_CarriesTheBackendAccount_NotThePhotonPlayerId()
         {

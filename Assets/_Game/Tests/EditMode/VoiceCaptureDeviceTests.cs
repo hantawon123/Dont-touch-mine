@@ -13,6 +13,15 @@ namespace Game.Tests.EditMode
     /// </remarks>
     public sealed class VoiceCaptureDeviceTests
     {
+        [TestCase("머리에 거는 수화기 (2- 태원의 Buds4)")]
+        [TestCase("Headset (AirPods Pro 2)")]
+        public void ReconnectedDeviceIsSelectedAgainWithoutChangingSavedChoice(string saved)
+        {
+            Assert.That(VoiceCaptureDevice.ResolveAvailable(saved, new[] { saved }), Is.EqualTo(saved));
+            Assert.That(VoiceCaptureDevice.ResolveAvailable(saved, new[] { "USB Mic" }), Is.Null);
+            Assert.That(VoiceCaptureDevice.ResolveAvailable(saved, new[] { "USB Mic", saved }), Is.EqualTo(saved));
+        }
+
         [Test]
         public void ChosenDevice_IsPassedThroughByName()
         {

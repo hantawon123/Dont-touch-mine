@@ -71,6 +71,7 @@ namespace Game.Core.Settings
             public const string VolumeMaster = "settings.row.volumeMaster";
             public const string VolumeMusic = "settings.row.volumeMusic";
             public const string VolumeEffects = "settings.row.volumeEffects";
+            public const string VolumeVoice = "settings.row.volumeVoice";
             public const string VolumeMicrophone = "settings.row.volumeMicrophone";
 
             public const string ActionVoiceToggle = "settings.row.actionVoiceToggle";
@@ -201,6 +202,9 @@ namespace Game.Core.Settings
 
             public const string SuspendedTitle = "home.suspended.title";
             public const string SuspendedBody = "home.suspended.body";
+            public const string UpdateTitle = "home.update.title";
+            public const string UpdateBody = "home.update.body";
+            public const string UpdateDownload = "home.update.download";
             public const string InviteBody = "home.invite.body";
         }
 

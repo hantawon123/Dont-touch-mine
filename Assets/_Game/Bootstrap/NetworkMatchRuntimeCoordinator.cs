@@ -269,6 +269,7 @@ namespace Game.Bootstrap
                     new System.Random(),
                     configuration.InitialWorldObjects,
                     network.DestructionLimit,
+                    specifiedAssignments: CreateDemoAssignments(participants.Count),
                     matchRules: network.MatchRules,
                     waitingSpawnPoints: configuration.HidingWaitingSpawnPoints);
 
@@ -326,6 +327,18 @@ namespace Game.Bootstrap
                 hasPublishedSnapshot = false;
                 throw;
             }
+        }
+
+        // 시연 고정 배정. 카탈로그에서 물건을 못 찾으면 무작위 배정으로 돌아가 경기는 그대로 시작한다.
+        private PlayerItemAssignment[] CreateDemoAssignments(int playerCount)
+        {
+            if (DemoMatchLineup.TryAssign(configuration.ItemDefinitions, playerCount, out var assignments))
+            {
+                return assignments;
+            }
+
+            Debug.LogWarning("[Match] Demo item assignment is unavailable; using random assignment.");
+            return null;
         }
 
         // 씬 로드 직후 스포너가 전원을 씬 스폰 위치로 재배치해 경기 배치를 덮어쓴다.

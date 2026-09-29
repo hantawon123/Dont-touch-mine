@@ -189,6 +189,12 @@ namespace Game.Architecture.Tests
 
                 view.ShowChrome(locale);
 
+                Assert.That(Find(root, "VoiceVolumeRow").Find("Label").GetComponent<TMPro.TextMeshProUGUI>().text,
+                    Is.EqualTo("Incoming Voice Volume"));
+                view.ShowVolume(SoundVolume.Voice, 81);
+                Assert.That(Find(root, "VoiceVolumeRow").GetComponentInChildren<UnityEngine.UI.Slider>(true).value,
+                    Is.EqualTo(81f));
+
                 Assert.That(Find(root, "GeneralTab").GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text,
                     Is.EqualTo("General"));
                 Assert.That(Find(root, "LanguageRow").Find("Label").GetComponent<TMPro.TextMeshProUGUI>().text,
