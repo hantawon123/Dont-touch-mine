@@ -326,8 +326,11 @@ namespace Game.Client.Interactions
             transform.SetParent(null, worldPositionStays: true);
             RestoreOwningScene();
             transform.SetPositionAndRotation(position, rotation);
+            body.position = position;
+            body.rotation = rotation;
 
             SetCollidersEnabled(true);
+            body.useGravity = true;
             body.isKinematic = false;
 
             IsCarried = false;
