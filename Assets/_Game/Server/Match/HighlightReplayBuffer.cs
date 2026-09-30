@@ -219,11 +219,7 @@ namespace Game.Server.Match
 
         public int Count => frames.Count;
 
-        public bool TryRecord(
-            double now,
-            IReadOnlyList<Pose> playerPoses,
-            IReadOnlyList<WorldObjectState> worldObjects,
-            IReadOnlyList<HighlightPlayerAction> playerActions = null)
+        public bool IsSampleDue(double now)
         {
             if (now < 0d || double.IsNaN(now) || double.IsInfinity(now))
             {
@@ -235,10 +231,16 @@ namespace Game.Server.Match
                 throw new ArgumentException("Replay time must not move backwards.", nameof(now));
             }
 
-            if (lastRecordedAt >= 0d && now - lastRecordedAt < sampleIntervalSeconds)
-            {
-                return false;
-            }
+            return lastRecordedAt < 0d || now - lastRecordedAt >= sampleIntervalSeconds;
+        }
+
+        public bool TryRecord(
+            double now,
+            IReadOnlyList<Pose> playerPoses,
+            IReadOnlyList<WorldObjectState> worldObjects,
+            IReadOnlyList<HighlightPlayerAction> playerActions = null)
+        {
+            if (!IsSampleDue(now)) return false;
 
             frames.Enqueue(new HighlightReplayFrame(now, playerPoses, worldObjects, playerActions));
             lastRecordedAt = now;

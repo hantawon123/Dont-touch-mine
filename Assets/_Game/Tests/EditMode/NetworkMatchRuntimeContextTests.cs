@@ -15,6 +15,21 @@ namespace Game.Architecture.Tests
     public sealed class NetworkMatchRuntimeContextTests
     {
         [Test]
+        public void ReplayState_PostureValidationMatchesEveryByteValue()
+        {
+            for (var value = 0; value <= byte.MaxValue; value++)
+            {
+                var posture = (PlayerPosture)value;
+                if (Enum.IsDefined(typeof(PlayerPosture), posture))
+                    Assert.That(new NetworkPlayerReplayState(posture, true, 0).Posture, Is.EqualTo(posture));
+                else
+                    Assert.Throws<ArgumentOutOfRangeException>(() => new NetworkPlayerReplayState(posture, true, 0));
+            }
+            Assert.Throws<ArgumentOutOfRangeException>(() => new NetworkPlayerReplayState(PlayerPosture.Standing, true, -1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new NetworkPlayerReplayState(PlayerPosture.Standing, true, 0, -1));
+        }
+
+        [Test]
         public void Context_UsesNetworkTimeAndOrdersPosesByPlayerIndex()
         {
             var firstPose = new Pose(new Vector3(1f, 2f, 3f), Quaternion.Euler(0f, 10f, 0f));

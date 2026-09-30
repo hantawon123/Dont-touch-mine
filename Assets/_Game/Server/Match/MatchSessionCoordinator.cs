@@ -935,11 +935,10 @@ namespace Game.Server.Match
             return highlights.TryGetCurrent(out highlight);
         }
 
-        public bool TryRecordReplayFrame(
-            double now,
-            IReadOnlyList<Pose> playerPoses,
-            IReadOnlyList<WorldObjectState> replayObjects,
-            IReadOnlyList<HighlightPlayerAction> playerActions = null)
+        public bool IsReplayFrameDue(double now) =>
+            CanRecordReplay(now) && highlightReplayBuffer.IsSampleDue(now);
+
+        private bool CanRecordReplay(double now)
         {
             if (replayUnavailable) return false;
             var phase = state.CurrentPhase.CurrentValue;
@@ -947,10 +946,16 @@ namespace Game.Server.Match
             var canRecordSearching = phase == MatchPhase.Searching && state.PhaseEndsAt.CurrentValue > 0d &&
                                      now >= searchingStartedAt + HighlightRecordingDelaySeconds;
             // Result-stage teleports are presentation, never replay footage.
-            if (!canRecordSearching || result.HasValue)
-            {
-                return false;
-            }
+            return canRecordSearching && !result.HasValue;
+        }
+
+        public bool TryRecordReplayFrame(
+            double now,
+            IReadOnlyList<Pose> playerPoses,
+            IReadOnlyList<WorldObjectState> replayObjects,
+            IReadOnlyList<HighlightPlayerAction> playerActions = null)
+        {
+            if (!CanRecordReplay(now)) return false;
 
             if (playerPoses == null || playerPoses.Count != Players.Players.Count)
             {
@@ -965,6 +970,8 @@ namespace Game.Server.Match
                     "Replay actions must match player poses.",
                     nameof(playerActions));
             }
+
+            if (!highlightReplayBuffer.IsSampleDue(now)) return false;
 
             var actions = new HighlightPlayerAction[playerPoses.Count];
             for (var i = 0; i < actions.Length; i++)
