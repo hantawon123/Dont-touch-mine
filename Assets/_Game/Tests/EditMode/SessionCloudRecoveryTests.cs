@@ -20,7 +20,6 @@ namespace Game.Architecture.Tests
             var region = settings.FixedRegion;
             var version = settings.AppVersion;
             var config = NetworkProjectConfig.Global;
-            var heapPages = config.Heap.PageCount;
             var migration = config.HostMigration.EnableAutoUpdate;
             var webHost = config.AllowClientServerModesInWebGL;
             var profile = new PlayerProfile("test player");
@@ -60,7 +59,6 @@ namespace Game.Architecture.Tests
                 settings.FixedRegion = region; settings.AppVersion = version;
                 config.HostMigration.EnableAutoUpdate = migration;
                 config.AllowClientServerModesInWebGL = webHost;
-                config.Heap.PageCount = heapPages;
             }
         }
     }

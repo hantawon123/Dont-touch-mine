@@ -222,14 +222,15 @@ namespace Game.Network.Players
         public override void Render()
         {
             PublishLocalVoiceIfOwner();
-            var identityChanged = Nickname.Get(ref _publishedNickname);
-            identityChanged |= UserId.Get(ref _publishedUserId);
+            var nickname = Nickname.ToString();
+            var userId = UserId.ToString();
             var talking = IsSendingVoice();
             if (_publishedIsHost == IsHost
                 && _publishedMuted == IsMuted
                 && _publishedListening == IsListening
                 && _publishedTalking == talking
-                && !identityChanged)
+                && string.Equals(_publishedNickname, nickname, StringComparison.Ordinal)
+                && string.Equals(_publishedUserId, userId, StringComparison.Ordinal))
             {
                 return;
             }
@@ -238,6 +239,8 @@ namespace Game.Network.Players
             _publishedMuted = IsMuted;
             _publishedListening = IsListening;
             _publishedTalking = talking;
+            _publishedNickname = nickname;
+            _publishedUserId = userId;
             RosterOf(Runner)?.Refresh(Runner);
         }
 

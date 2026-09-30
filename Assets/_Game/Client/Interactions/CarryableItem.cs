@@ -10,9 +10,7 @@ namespace Game.Client.Interactions
     /// 들고 다닐 수 있는 물건. 잡동사니(일반 물건)와 플레이어 고유 물건 모두 이 컴포넌트를 사용한다.
     /// 들리는 동안은 물리와 충돌을 끄고 플레이어의 HoldPoint에 붙는다.
     /// </summary>
-#if !UNITY_SERVER
     [RequireComponent(typeof(Rigidbody))]
-#endif
     public sealed class CarryableItem : MonoBehaviour, IInteractable
     {
         [SerializeField]
@@ -74,23 +72,7 @@ namespace Game.Client.Interactions
             Game.Core.Settings.UiLocale.Applied(Game.Core.Settings.UiText.Interact.PickUp);
 
         private Rigidbody cachedBody;
-        // Only the server build's scene copy can defer an otherwise default, stationary body.
-        [SerializeField, HideInInspector] private bool deferredBody;
-        private Rigidbody body
-        {
-            get
-            {
-                if (cachedBody != null) return cachedBody;
-                cachedBody = GetComponent<Rigidbody>();
-                if (cachedBody == null)
-                {
-                    cachedBody = gameObject.AddComponent<Rigidbody>();
-                    cachedBody.isKinematic = deferredBody;
-                }
-                cachedBody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-                return cachedBody;
-            }
-        }
+        private Rigidbody body => cachedBody != null ? cachedBody : cachedBody = GetComponent<Rigidbody>();
         private bool remoteDriven;
         private Pose remoteFrom, remoteTo;
         private float remoteProgress;
@@ -138,13 +120,6 @@ namespace Game.Client.Interactions
 
         public bool TryGetPhysicsPose(out Pose pose, out Vector3 velocity, out bool moving)
         {
-            if (deferredBody && cachedBody == null)
-            {
-                pose = new Pose(transform.position, transform.rotation);
-                velocity = default;
-                moving = false;
-                return false;
-            }
             pose = new Pose(body.position, body.rotation);
             velocity = body.linearVelocity;
             moving = !body.IsSleeping();
@@ -184,9 +159,11 @@ namespace Game.Client.Interactions
         {
             if (!owningScene.IsValid()) owningScene = gameObject.scene;
             _ = ObjectId;
+            cachedBody = GetComponent<Rigidbody>();
+
             // 빠르게 던져진 작은 물체가 얇은 벽을 프레임 사이에 통과(터널링)하지 않도록
             // 이동 경로 전체를 검사하는 연속 충돌 감지를 사용한다.
-            if (!deferredBody) _ = body;
+            body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
             if (!preparedForBuild) ApplyCarryableLayer();
             if (preparedForBuild && preparedScale == transform.lossyScale)
             {
@@ -326,11 +303,8 @@ namespace Game.Client.Interactions
             transform.SetParent(null, worldPositionStays: true);
             RestoreOwningScene();
             transform.SetPositionAndRotation(position, rotation);
-            body.position = position;
-            body.rotation = rotation;
 
             SetCollidersEnabled(true);
-            body.useGravity = true;
             body.isKinematic = false;
 
             IsCarried = false;
@@ -484,11 +458,6 @@ namespace Game.Client.Interactions
 
         public bool TryGetSettledPose(out Pose pose)
         {
-            if (deferredBody && cachedBody == null)
-            {
-                pose = default;
-                return false;
-            }
             if (!IsCarried && !body.isKinematic && body.IsSleeping())
             {
                 pose = new Pose(transform.position, transform.rotation);

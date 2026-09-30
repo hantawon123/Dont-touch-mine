@@ -21,8 +21,6 @@ namespace Game.Bootstrap
 
         public void Tick()
         {
-            // The authority replicates appearance fields in PlayerAvatar; only clients dress the model.
-            if (network.IsDedicatedServer) return;
             published.Clear();
             AvatarAppearanceBoard.SetLocal(appearance.Current);
             foreach (var avatar in network.SpawnedAvatars)

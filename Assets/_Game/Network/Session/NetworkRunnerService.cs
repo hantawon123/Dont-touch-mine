@@ -1127,7 +1127,7 @@ namespace Game.Network.Session
         {
             var args = new StartGameArgs
             {
-                Config = ConfigureSession(NetworkProjectConfig.Global, request.Mode),
+                Config = ConfigureSession(NetworkProjectConfig.Global),
                 GameMode = request.Mode,
                 PlayerUniqueId = _playerUniqueId,
                 SessionName = request.RoomCode,
@@ -1171,14 +1171,8 @@ namespace Game.Network.Session
             Application.targetFrameRate = tickRate;
         }
 
-        internal static NetworkProjectConfig ConfigureSession(NetworkProjectConfig config, GameMode mode = GameMode.Client)
+        internal static NetworkProjectConfig ConfigureSession(NetworkProjectConfig config)
         {
-            if (mode == GameMode.Server)
-            {
-                // The measured six-player scenario peaks at 9 object pages; reserve ample headroom.
-                // This room process owns one runner. Keep the loaded prefab table and execution order intact.
-                config.Heap.PageCount = 64;
-            }
 #if UNITY_EDITOR
             // Development Play reloads the domain; large Editor scenes can exceed the normal 10 seconds.
             if (EditorDevelopmentSession.Enabled)

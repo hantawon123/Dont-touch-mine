@@ -17,26 +17,13 @@ namespace Game.Tests.PlayMode
 
         [UnityTest]
         public IEnumerator Character_LandsOnAndIsBlockedByBox_WithoutPushingIt()
-            => VerifyCharacterCollision(false);
-
-#if UNITY_SERVER
-        [UnityTest]
-        public IEnumerator Character_LandsOnAndIsBlockedByDeferredBox_WithoutCreatingItsBody()
-            => VerifyCharacterCollision(true);
-#endif
-
-        private IEnumerator VerifyCharacterCollision(bool deferred)
         {
             var floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
             floor.transform.position = Vector3.down * 0.5f;
             floor.transform.localScale = new Vector3(20f, 1f, 20f);
             var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
             box.transform.position = Vector3.up * 0.5f;
-            box.SetActive(false);
-            var item = box.AddComponent<CarryableItem>();
-            if (deferred)
-                typeof(CarryableItem).GetField("deferredBody", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(item, true);
-            box.SetActive(true);
+            box.AddComponent<CarryableItem>();
             var body = box.GetComponent<Rigidbody>();
             NetworkObject player = null;
             var moveInput = Vector2.zero;
@@ -60,12 +47,12 @@ namespace Game.Tests.PlayMode
                 var teleport = typeof(Game.Network.Players.NetworkPlayerMotor).GetMethod("TryTeleport",
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
                 yield return new WaitForSeconds(0.3f);
-                var boxPosition = box.transform.position;
+                var boxPosition = body.position;
                 teleport.Invoke(motor, new object[] { new Pose(new Vector3(0f, 3f, 0f), Quaternion.identity) });
                 yield return new WaitForSeconds(1.5f);
                 Assert.That(kcc.FixedData.IsGrounded, Is.True, "The box must remain a usable landing surface.");
                 Assert.That(kcc.FixedData.TargetPosition.y, Is.EqualTo(1f).Within(0.08f));
-                Assert.That(Vector3.Distance(box.transform.position, boxPosition), Is.LessThan(0.04f), "Landing must not kick the box away.");
+                Assert.That(Vector3.Distance(body.position, boxPosition), Is.LessThan(0.04f), "Landing must not kick the box away.");
 
                 teleport.Invoke(motor, new object[] { new Pose(new Vector3(-2f, 0f, 0f), Quaternion.identity) });
                 yield return new WaitForFixedUpdate();
@@ -73,9 +60,8 @@ namespace Game.Tests.PlayMode
                 yield return new WaitForSeconds(1.2f);
                 Assert.That(kcc.FixedData.TargetPosition.x, Is.GreaterThan(-1.9f), "The walking probe must actually move.");
                 Assert.That(kcc.FixedData.TargetPosition.x, Is.LessThan(-0.7f), "The player must stop at the box instead of walking through it.");
-                Assert.That(Vector3.Distance(box.transform.position, boxPosition), Is.LessThan(0.04f), "Walking into the box must not push it.");
-                if (deferred) Assert.That(box.GetComponent<Rigidbody>(), Is.Null);
-                else Assert.That(body.isKinematic, Is.False, "Props must retain gravity and prop-to-prop physics.");
+                Assert.That(Vector3.Distance(body.position, boxPosition), Is.LessThan(0.04f), "Walking into the box must not push it.");
+                Assert.That(body.isKinematic, Is.False, "Props must retain gravity and prop-to-prop physics.");
             }
             finally
             {
