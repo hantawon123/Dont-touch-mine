@@ -927,6 +927,57 @@ namespace Game.Tests.EditMode
                 Is.True);
         }
 
+        [Test]
+        public void RuntimeReplay_SamplesWorldOnlyWhenDue_PreservesFramesAndEveryTickActions()
+        {
+            StartSearching();
+            using var referenceState = new MatchState();
+            var reference = CreateSession(referenceState, 1234);
+            reference.Start(10d);
+            reference.AdvanceTime(190d, lastKnownPositions);
+            var poses = CreatePlayerPoses(lastKnownPositions);
+            var objects = new[] { new WorldObjectState("shelf", Pose.identity) };
+            var actions = new HighlightPlayerAction[poses.Length];
+            var context = new TestRuntimeContext {
+                ServerTime = 191d, PlayerPositions = lastKnownPositions,
+                PlayerPoses = poses, ReplayObjects = objects, ReplayActions = actions
+            };
+            var controller = new MatchRuntimeController(session, context, CreateInGameAppFlow());
+            Assert.That(controller.ResumeMatch(), Is.True);
+            for (var tick = 0; tick < 640; tick++)
+            {
+                context.ServerTime = 191d + tick / 64d;
+                poses[0] = new Pose(new Vector3(tick, 0, 0), Quaternion.identity);
+                objects[0] = new WorldObjectState("shelf", poses[0]);
+                actions[0] = tick % 8 == 0 ? HighlightPlayerAction.Punching : HighlightPlayerAction.None.WithEmote(1);
+                if (tick == 64 || tick == 128 || tick == 192)
+                {
+                    session.RegisterHit(0, 1, Vector3.zero, context.ServerTime);
+                    reference.RegisterHit(0, 1, Vector3.zero, context.ServerTime);
+                }
+                reference.TryRecordReplayFrame(context.ServerTime, poses, objects, actions);
+                reference.AdvanceTime(context.ServerTime, lastKnownPositions);
+                controller.Tick();
+            }
+            var field = typeof(MatchSessionCoordinator).GetField("highlightReplayBuffer",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            var expected = ((HighlightReplayBuffer)field.GetValue(reference)).Capture(191d, 201d);
+            var actual = ((HighlightReplayBuffer)field.GetValue(session)).Capture(191d, 201d);
+            Assert.That(actual.Length, Is.EqualTo(92));
+            Assert.That(actual.Length, Is.EqualTo(expected.Length));
+            for (var i = 0; i < actual.Length; i++)
+            {
+                Assert.That(actual[i].RecordedAt, Is.EqualTo(191d + i * 7d / 64d));
+                Assert.That(actual[i].RecordedAt, Is.EqualTo(expected[i].RecordedAt));
+                Assert.That(actual[i].PlayerPoses, Is.EqualTo(expected[i].PlayerPoses));
+                Assert.That(actual[i].WorldObjects, Is.EqualTo(expected[i].WorldObjects));
+                Assert.That(actual[i].PlayerActions, Is.EqualTo(expected[i].PlayerActions));
+            }
+            TestContext.WriteLine($"Replay 640 ticks: frames={actual.Length}, worldReads={context.ReplayObjectReads}, actionsReads={context.ReplayActionReads}");
+            Assert.That(context.ReplayActionReads, Is.EqualTo(640));
+            Assert.That(context.ReplayObjectReads, Is.EqualTo(actual.Length));
+        }
+
         /// <summary>
         /// 하이라이트가 피격·기절 진입·일어서기를 그대로 보여주려면, 녹화가 맞은 쪽과
         /// 기절 구간을 프레임에 남겨야 한다 (2026-09-22).
@@ -2202,12 +2253,21 @@ namespace Game.Tests.EditMode
             }
         }
 
-        private sealed class TestRuntimeContext : IMatchRuntimeContext
+        private sealed class TestRuntimeContext : IMatchRuntimeContext, IHighlightReplayActionSource
         {
             public double ServerTime { get; set; }
             public IReadOnlyList<Vector3> PlayerPositions { get; set; }
             public IReadOnlyList<Pose> PlayerPoses { get; set; }
-            public IReadOnlyList<WorldObjectState> ReplayObjects { get; set; }
+            private IReadOnlyList<WorldObjectState> replayObjects;
+            public int ReplayObjectReads { get; private set; }
+            public int ReplayActionReads { get; private set; }
+            public IReadOnlyList<HighlightPlayerAction> ReplayActions { get; set; }
+            public IReadOnlyList<HighlightPlayerAction> PlayerReplayActions { get { ReplayActionReads++; return ReplayActions; } }
+            public IReadOnlyList<WorldObjectState> ReplayObjects
+            {
+                get { ReplayObjectReads++; return replayObjects; }
+                set => replayObjects = value;
+            }
         }
     }
 }

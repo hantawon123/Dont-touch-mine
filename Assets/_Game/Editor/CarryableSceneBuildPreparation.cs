@@ -23,6 +23,9 @@ namespace Game.Editor
             if (report == null || !scene.GetRootGameObjects().Any(root =>
                     root.GetComponentInChildren<PlaygroundLifetimeScope>(true) != null)) return;
             Prepare(scene);
+            if (report.summary.platformGroup == BuildTargetGroup.Standalone &&
+                EditorUserBuildSettings.standaloneBuildSubtarget == StandaloneBuildSubtarget.Server)
+                Debug.Log($"[ServerBuild] {scene.name}: deferred {PrepareDeferredBodies(scene)} idle carryable bodies.");
         }
 
         public static int Prepare(Scene scene)
@@ -52,6 +55,63 @@ namespace Game.Editor
                 serialized.ApplyModifiedPropertiesWithoutUndo();
             }
             return items.Length;
+        }
+
+        public static int PrepareDeferredBodies(Scene scene)
+        {
+#if !UNITY_SERVER
+            return 0;
+#else
+            // Keep the exact collider geometry. Bodies with custom settings or dependencies stay intact.
+            var roots = scene.GetRootGameObjects();
+            var joints = roots.SelectMany(r => r.GetComponentsInChildren<Joint>(true)).ToArray();
+            var templateObject = new GameObject("Default body comparison") { hideFlags = HideFlags.HideAndDontSave };
+            var template = templateObject.AddComponent<Rigidbody>();
+            template.isKinematic = true;
+            var count = 0;
+            try
+            {
+                using var defaults = new SerializedObject(template);
+                foreach (var item in roots.SelectMany(r => r.GetComponentsInChildren<CarryableItem>(true)))
+                {
+                    var body = item.GetComponent<Rigidbody>();
+                    if (body == null || !body.isKinematic ||
+                        item.transform.parent != null && item.transform.parent.GetComponentInParent<Rigidbody>() != null ||
+                        joints.Any(j => j.connectedBody == body) ||
+                        item.GetComponentsInChildren<Component>(true).Any(c => c is not
+                            (Transform or Rigidbody or Collider or MeshFilter or MeshRenderer or LODGroup or CarryableItem)) ||
+                        item.GetComponentsInChildren<Rigidbody>(true).Length != 1 ||
+                        item.GetComponentsInChildren<CarryableItem>(true).Length != 1 ||
+                        item.GetComponentsInChildren<Collider>(true).Any(c => c.isTrigger)) continue;
+                    var staticParents = true;
+                    for (var parent = item.transform.parent; parent != null; parent = parent.parent)
+                        if (parent.GetComponents<Component>().Any(c => c is not
+                            (Transform or Collider or MeshFilter or MeshRenderer or LODGroup)))
+                        { staticParents = false; break; }
+                    if (!staticParents) continue;
+                    using var serializedBody = new SerializedObject(body);
+                    var property = serializedBody.GetIterator();
+                    var same = true;
+                    var enterChildren = true;
+                    while (property.Next(enterChildren))
+                    {
+                        enterChildren = false; // DataEquals already compares nested values; skip object-reference IDs too.
+                        if (property.propertyPath is "m_ObjectHideFlags" or "m_CorrespondingSourceObject" or
+                            "m_PrefabInstance" or "m_PrefabAsset" or "m_GameObject") continue;
+                        var other = defaults.FindProperty(property.propertyPath);
+                        if (other == null || !SerializedProperty.DataEquals(property, other)) { same = false; break; }
+                    }
+                    if (!same) continue;
+                    using var serializedItem = new SerializedObject(item);
+                    serializedItem.FindProperty("deferredBody").boolValue = true;
+                    serializedItem.ApplyModifiedPropertiesWithoutUndo();
+                    UnityEngine.Object.DestroyImmediate(body);
+                    count++;
+                }
+            }
+            finally { UnityEngine.Object.DestroyImmediate(templateObject); }
+            return count;
+#endif
         }
 
     }
