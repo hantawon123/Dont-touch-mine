@@ -112,8 +112,6 @@ namespace Game.Client.Players
         private PlayerCombatant combatant;
         private PlayerInteractor interactor;
         private Animator animator;
-        private RuntimeAnimatorController speedParameterController;
-        private bool hasSpeedParameter;
         private string currentState;
 
         /// <summary>지금 재생 중인 클립(상태) 이름. 1인칭 팔 뷰가 동작별 자세 프로필을 고를 때 읽는다.</summary>
@@ -587,14 +585,8 @@ namespace Game.Client.Players
         private void Update()
         {
             UpdateJumpAudio();
-            var controller = animator.runtimeAnimatorController;
-            // Parameters are immutable in a player; refresh when its controller is replaced.
-            if (controller != speedParameterController)
-            {
-                speedParameterController = controller;
-                hasSpeedParameter = controller != null && HasParameter(animator, "Speed");
-            }
-            if (controller != null && hasSpeedParameter)
+            if (animator.runtimeAnimatorController != null &&
+                HasParameter(animator, "Speed"))
             {
                 animator.SetFloat(
                     "Speed",
@@ -1285,9 +1277,9 @@ namespace Game.Client.Players
 
         private static bool HasParameter(Animator target, string name)
         {
-            for (var i = 0; i < target.parameterCount; i++)
+            foreach (var parameter in target.parameters)
             {
-                if (target.GetParameter(i).name == name)
+                if (parameter.name == name)
                 {
                     return true;
                 }

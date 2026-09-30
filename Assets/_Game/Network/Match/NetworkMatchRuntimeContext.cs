@@ -28,7 +28,7 @@ namespace Game.Network.Match
             int emoteSequence = 0,
             int emoteId = 0)
         {
-            if (posture is not (PlayerPosture.Standing or PlayerPosture.Crouching or PlayerPosture.Prone) ||
+            if (!Enum.IsDefined(typeof(PlayerPosture), posture) ||
                 attackSequence < 0 ||
                 emoteSequence < 0)
                 throw new ArgumentOutOfRangeException(nameof(posture));

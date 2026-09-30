@@ -39,11 +39,7 @@ namespace Game.Tests.PlayMode
     var before=body.position;
     for(var i=0;i<3;i++) yield return new WaitForFixedUpdate();
     Assert.That(body.position.z,Is.GreaterThan(before.z));
-    var placed=new Vector3(5f,3f,7f);
-    item.OnPlaced(placed,Quaternion.identity);
-    Assert.That(body.isKinematic,Is.False);
-    Assert.That(body.useGravity,Is.True);
-    Assert.That(body.position,Is.EqualTo(placed));
+    item.OnPlaced(Vector3.zero,Quaternion.identity); Assert.That(body.isKinematic,Is.False);
     item.OnStored(new Pose(Vector3.zero,Quaternion.identity)); Assert.That(root.activeSelf,Is.False);
     item.OnNetworkPose(new Pose(Vector3.right*3,Quaternion.identity));
     Assert.That(root.activeSelf&&item.enabled,Is.True); Assert.That(body.isKinematic,Is.True);

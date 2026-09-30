@@ -19,25 +19,8 @@ namespace Game.Editor
             var oldVersion = PlayerSettings.bundleVersion;
             var oldBackend = PlayerSettings.GetScriptingBackend(NamedBuildTarget.Server);
             var oldOptimization = PlayerSettings.dedicatedServerOptimizations;
-            // These visual-only models have no MeshCollider users. Keep all bones,
-            // animation and bounds; strip headless CPU geometry and visual morph targets.
-            var modelMetadata = new[] {
-                "Assets/_Game/Content/Characters/SmoothBear/SmoothBear.fbx",
-                "Assets/_Game/Content/Characters/SmoothBear/Hoods/AnimalHoods.fbx"
-            }.Select(path => (path, bytes: File.ReadAllBytes(path + ".meta"))).ToArray();
             try
             {
-                foreach (var model in modelMetadata)
-                {
-                    var importer = AssetImporter.GetAtPath(model.path) as ModelImporter;
-                    if (importer == null) throw new BuildFailedException("Missing server visual model: " + model.path);
-                    importer.isReadable = false;
-                    importer.importBlendShapes = false;
-                    importer.SaveAndReimport();
-                    var imported = (ModelImporter)AssetImporter.GetAtPath(model.path);
-                    if (imported.isReadable || imported.importBlendShapes)
-                        throw new BuildFailedException("Server visual mesh import retained CPU data: " + model.path);
-                }
                 PlayerSettings.bundleVersion = revision;
                 PlayerSettings.SetScriptingBackend(NamedBuildTarget.Server, ScriptingImplementation.Mono2x);
                 PlayerSettings.dedicatedServerOptimizations = true;
@@ -55,13 +38,6 @@ namespace Game.Editor
             }
             finally
             {
-                // Restore exact authored metadata, including after a failed build.
-                // Future client builds keep their original import settings.
-                foreach (var model in modelMetadata)
-                {
-                    File.WriteAllBytes(model.path + ".meta", model.bytes);
-                    AssetDatabase.ImportAsset(model.path, ImportAssetOptions.ForceUpdate);
-                }
                 PlayerSettings.bundleVersion = oldVersion;
                 PlayerSettings.SetScriptingBackend(NamedBuildTarget.Server, oldBackend);
                 PlayerSettings.dedicatedServerOptimizations = oldOptimization;

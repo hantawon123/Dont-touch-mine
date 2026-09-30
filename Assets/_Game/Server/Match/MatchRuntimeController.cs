@@ -76,13 +76,11 @@ namespace Game.Server.Match
                 var replayActions = context is IHighlightReplayActionSource actionSource
                     ? actionSource.PlayerReplayActions
                     : null;
-                // Action history still advances every tick; sample poses only when a frame is retained.
-                if (session.IsReplayFrameDue(context.ServerTime))
-                    session.TryRecordReplayFrame(
-                        context.ServerTime,
-                        context.PlayerPoses,
-                        context.ReplayObjects,
-                        replayActions);
+                session.TryRecordReplayFrame(
+                    context.ServerTime,
+                    context.PlayerPoses,
+                    context.ReplayObjects,
+                    replayActions);
                 session.AdvanceTime(context.ServerTime, context.PlayerPositions);
                 SyncAppFlow();
             }
