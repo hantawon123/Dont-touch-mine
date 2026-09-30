@@ -15,6 +15,45 @@ namespace Game.Tests.EditMode
     public sealed class PlayerAnimationDriverTests
     {
         [UnityTest]
+        public IEnumerator SpeedParameter_FollowsControllerReplacement()
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.NewScene(
+                UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,
+                UnityEditor.SceneManagement.NewSceneMode.Single);
+            var listener = new GameObject("Parameter test listener", typeof(AudioListener));
+            yield return new EnterPlayMode();
+            var player = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Game/Content/Prefabs/PlayerCharacter.prefab"));
+            var animator = player.GetComponentInChildren<Animator>();
+            var driver = player.GetComponent<PlayerAnimationDriver>();
+            player.GetComponent<PlayerCombatant>().ConfigureNetworkPlayer(0, false);
+            driver.enabled = false;
+            var original = animator.runtimeAnimatorController as AnimatorController;
+            Assert.That(original, Is.Not.Null);
+            Assert.That(original.parameters.Any(p => p.name == "Speed"), Is.True);
+            var withoutSpeed = Object.Instantiate(original);
+            for (var i = withoutSpeed.parameters.Length - 1; i >= 0; i--)
+                if (withoutSpeed.parameters[i].name == "Speed") withoutSpeed.RemoveParameter(i);
+            try
+            {
+                foreach (var controller in new[] { original, withoutSpeed, original })
+                {
+                    animator.runtimeAnimatorController = controller;
+                    driver.ApplyNetworkState(4f, true, 0, Vector2.up, false);
+                    yield return null;
+                    var hasSpeed = controller.parameters.Any(p => p.name == "Speed");
+                    if (hasSpeed) animator.SetFloat("Speed", 0f);
+                    driver.SendMessage("Update");
+                    if (hasSpeed) Assert.That(animator.GetFloat("Speed"), Is.GreaterThan(0f));
+                    LogAssert.NoUnexpectedReceived();
+                }
+            }
+            finally { Object.DestroyImmediate(player); Object.DestroyImmediate(withoutSpeed); }
+            yield return new ExitPlayMode();
+            Object.DestroyImmediate(listener);
+        }
+
+        [UnityTest]
         public IEnumerator LateJoin_EmoteSnapshotRestoresProgressAndRespectsCancellation()
         {
             UnityEditor.SceneManagement.EditorSceneManager.NewScene(
